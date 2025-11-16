@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -158,6 +158,7 @@
       align-items: baseline;
       justify-content: space-between;
       margin-bottom: 12px;
+      gap: 10px;
     }
 
     .panel-title {
@@ -301,6 +302,40 @@
 
     /* Chart + Summary */
 
+    .scenario-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .scenario-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .scenario-btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      background: rgba(15,23,42,0.7);
+      color: #e5e7eb;
+      font-size: 11px;
+      padding: 4px 9px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .scenario-btn.active {
+      border-color: var(--accent);
+      background: radial-gradient(circle at top left, rgba(47,128,237,0.35), rgba(15,23,42,0.9));
+      box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+    }
+
     .chart-wrapper {
       height: 320px;
       position: relative;
@@ -344,7 +379,7 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .summary-card {
@@ -377,6 +412,47 @@
 
     .summary-tag.warn {
       color: var(--warning);
+    }
+
+    .summary-tag.muted {
+      color: var(--text-muted);
+    }
+
+    /* Extra summary row */
+
+    .summary-grid.extra-grid {
+      margin-top: 4px;
+    }
+
+    .meter {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,0.35);
+      margin-top: 4px;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #22c55e, #bef264);
+      box-shadow: 0 0 10px rgba(34,197,94,0.7);
+      transition: width 0.5s ease-out;
+    }
+
+    .what-changed-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-top: 4px;
+    }
+
+    .what-changed-text span.highlight {
+      color: #e5e7eb;
+      font-weight: 500;
     }
 
     /* Insights & disclaimer */
@@ -433,15 +509,15 @@
       .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
+
+      .summary-grid.extra-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 
     @media (max-width: 600px) {
       .app-shell {
         padding-inline: 10px;
-      }
-
-      .summary-grid {
-        grid-template-columns: minmax(0, 1fr);
       }
 
       header.app-header {
@@ -451,6 +527,10 @@
 
       .panel {
         padding-inline: 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: minmax(0, 1fr);
       }
     }
   </style>
@@ -578,6 +658,15 @@
               </div>
             </div>
 
+            <div class="scenario-row">
+              <span class="scenario-label">Scenarios:</span>
+              <button class="scenario-btn active" data-scenario="base">Base</button>
+              <button class="scenario-btn" data-scenario="bull">Bull (+2% return)</button>
+              <button class="scenario-btn" data-scenario="bear">Bear (-2% return)</button>
+              <button class="scenario-btn" data-scenario="inflation">High inflation (+2%)</button>
+              <button class="scenario-btn" data-scenario="boost">Boost saving (+$200/m)</button>
+            </div>
+
             <div class="legend-row">
               <div class="legend-side">
                 <span class="legend-dot"></span>
@@ -613,6 +702,30 @@
                 <div class="summary-label">Estimated Income (4% Rule)</div>
                 <div id="summaryIncome" class="summary-value">$0 / yr</div>
                 <div class="summary-tag">Illustrative only</div>
+              </div>
+            </div>
+
+            <!-- New: health score / savings meter / what changed -->
+            <div class="summary-grid extra-grid">
+              <div class="summary-card">
+                <div class="summary-label">Wealth Health Score</div>
+                <div id="wealthScore" class="summary-value">0 / 100</div>
+                <div id="wealthScoreTag" class="summary-tag muted">Adjust your plan to see a score.</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">Savings Power Meter</div>
+                <div class="meter">
+                  <div id="savingsMeterFill" class="meter-fill"></div>
+                </div>
+                <div id="savingsMeterLabel" class="summary-tag">—</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">What Changed</div>
+                <div id="whatChangedText" class="what-changed-text">
+                  Adjust something above to see the impact of your latest change.
+                </div>
               </div>
             </div>
 
@@ -662,7 +775,9 @@
     gradient.addColorStop(0, 'rgba(47,128,237,0.6)');
     gradient.addColorStop(1, 'rgba(47,128,237,0)');
 
-    // Initial chart setup
+    let activeScenario = 'base';
+    let prevSnapshot = null;
+
     const projectionChart = new Chart(ctx, {
       type: 'line',
       data: {
@@ -756,19 +871,52 @@
       }
     }
 
-    // Core projection logic
+    // Helper: clamp
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    // Main projection logic
     function runProjection() {
       const age = Number(document.getElementById('ageInput').value) || 0;
-      const retireAge = Number(document.getElementById('retireAgeInput').value) || 0;
+      const retireAgeBase = Number(document.getElementById('retireAgeInput').value) || 0;
       const balance0 = Number(document.getElementById('balanceInput').value) || 0;
       const contrib = Number(document.getElementById('contributionInput').value) || 0;
       const frequency = document.getElementById('frequencySelect').value;
-      const returnPct = Number(document.getElementById('returnInput').value) || 0;
-      const inflationPct = Number(document.getElementById('inflationInput').value) || 0;
+      const returnPctBase = Number(document.getElementById('returnInput').value) || 0;
+      const inflationPctBase = Number(document.getElementById('inflationInput').value) || 0;
       const showTodayDollars = document.getElementById('todayDollarsToggle').checked;
       const scenarioOn = document.getElementById('scenarioToggle').checked;
-      const scenarioExtraMonthly = Number(document.getElementById('scenarioExtraInput').value) || 0;
+      const scenarioExtraMonthlyInput = Number(document.getElementById('scenarioExtraInput').value) || 0;
 
+      // Scenario adjustments
+      let returnAdj = 0;
+      let inflationAdj = 0;
+      let scenarioExtraAdj = 0;
+
+      switch (activeScenario) {
+        case 'bull':
+          returnAdj = 2;
+          break;
+        case 'bear':
+          returnAdj = -2;
+          break;
+        case 'inflation':
+          inflationAdj = 2;
+          break;
+        case 'boost':
+          scenarioExtraAdj = 200;
+          break;
+        case 'base':
+        default:
+          break;
+      }
+
+      const returnPct = returnPctBase + returnAdj;
+      const inflationPct = inflationPctBase + inflationAdj;
+      const scenarioExtraMonthly = scenarioExtraMonthlyInput + scenarioExtraAdj;
+
+      const retireAge = retireAgeBase; // could adjust in future scenarios
       const years = Math.max(retireAge - age, 0);
       if (years <= 0) return;
 
@@ -789,7 +937,6 @@
         const currentAge = age + i;
 
         if (i > 0) {
-          // Contributions at the end of previous year
           balBase = balBase * (1 + r) + annualContribBase;
           totalContribBase += annualContribBase;
 
@@ -833,7 +980,7 @@
         document.getElementById('scenarioLegendLabel').style.opacity = '0.4';
       }
 
-      // Update label for today's dollars vs nominal
+      // Update label for today's vs nominal
       const todayModeLabel = document.getElementById('todayModeLabel');
       if (showTodayDollars) {
         todayModeLabel.textContent = "Today's dollars";
@@ -846,7 +993,6 @@
       // Summary metrics (base plan)
       const finalBalanceBase = baseData[baseData.length - 1] || 0;
       const totalContributions = totalContribBase;
-
       const growth = Math.max(finalBalanceBase - totalContributions - balance0, 0);
       const estIncome = finalBalanceBase * 0.04; // 4% rule
 
@@ -862,6 +1008,49 @@
         balanceTag.textContent = "Solid mix of contributions and growth.";
       } else {
         balanceTag.textContent = "Contributions are the main driver here.";
+      }
+
+      // Wealth Health Score (0–100)
+      const wealthScoreEl = document.getElementById('wealthScore');
+      const wealthScoreTagEl = document.getElementById('wealthScoreTag');
+
+      let scoreBalance = clamp((finalBalanceBase / 1_000_000) * 60, 0, 60);
+      let scoreGrowth = clamp(growthShare * 25, 0, 25);
+      let scoreYears = years >= 25 ? 10 : years >= 15 ? 7 : years >= 5 ? 4 : 2;
+
+      let scoreContribution = 0;
+      if (annualContribBase === 0) scoreContribution = 0;
+      else if (annualContribBase < 6000) scoreContribution = 3;
+      else if (annualContribBase < 20000) scoreContribution = 7;
+      else scoreContribution = 10;
+
+      const wealthScore = Math.round(clamp(scoreBalance + scoreGrowth + scoreYears + scoreContribution, 1, 99));
+      wealthScoreEl.textContent = `${wealthScore} / 100`;
+
+      let scoreLabel = "";
+      if (wealthScore < 30) scoreLabel = "Early-stage or underpowered. Increasing savings or working longer could help.";
+      else if (wealthScore < 60) scoreLabel = "On the way. Some good building blocks, but there’s still room to strengthen this plan.";
+      else if (wealthScore < 80) scoreLabel = "Healthy projection. Compounding and savings are working well together.";
+      else scoreLabel = "Very strong projection. You’re giving compounding a lot of time and fuel to work with.";
+
+      wealthScoreTagEl.textContent = scoreLabel;
+      wealthScoreTagEl.classList.remove('muted');
+
+      // Savings Power Meter
+      const meterFill = document.getElementById('savingsMeterFill');
+      const meterLabel = document.getElementById('savingsMeterLabel');
+
+      const meterPercent = clamp(growthShare * 100, 0, 100);
+      meterFill.style.width = `${meterPercent}%`;
+
+      if (growthShare > 0.7) {
+        meterLabel.textContent = "Growth-driven plan: markets are doing most of the work.";
+      } else if (growthShare > 0.4) {
+        meterLabel.textContent = "Balanced plan: both savings and growth are important drivers.";
+      } else if (growthShare > 0.1) {
+        meterLabel.textContent = "Contribution-driven: savings are carrying most of the load.";
+      } else {
+        meterLabel.textContent = "Very contribution-heavy so far, with limited compounding impact.";
       }
 
       // Behavioural insight
@@ -883,8 +1072,7 @@
           (${upliftPct.toFixed(1)}% more than your base plan in ${years} years).
         `;
       } else {
-        // No scenario, general insight
-        const savingRateDescriptor =
+        const savingDescriptor =
           annualContribBase === 0
             ? "no ongoing contributions"
             : annualContribBase < 6000
@@ -895,19 +1083,91 @@
 
         insight = `
           You're contributing about <span class="insights-highlight">$${Math.round(annualContribBase).toLocaleString()} per year</span>,
-          which is ${savingRateDescriptor}. 
+          which is ${savingDescriptor}. 
           Small tweaks to your savings rate or retirement age can have a large impact once markets have 
           <span class="insights-highlight">${years}+ years</span> to compound.
         `;
       }
 
       insightsEl.innerHTML = insight;
+
+      // What changed? (diff vs previous snapshot)
+      const whatChangedEl = document.getElementById('whatChangedText');
+      const snapshot = {
+        finalBalanceBase,
+        annualContribBase,
+        retireAge,
+        returnPctBase,
+        inflationPctBase,
+        scenarioOn,
+        scenarioExtraMonthly: scenarioExtraMonthlyInput,
+        activeScenario
+      };
+
+      if (prevSnapshot) {
+        const diffBalance = finalBalanceBase - prevSnapshot.finalBalanceBase;
+        let keyChange = "";
+        let changeText = "";
+
+        if (prevSnapshot.retireAge !== retireAge) {
+          keyChange = "retirement age";
+          const direction = retireAge > prevSnapshot.retireAge ? "later" : "earlier";
+          changeText = `
+            You moved your retirement age from <span class="highlight">${prevSnapshot.retireAge}</span> to 
+            <span class="highlight">${retireAge}</span>, which changed your projected balance by 
+            <span class="highlight">${diffBalance >= 0 ? '+' : '-'}$${Math.abs(diffBalance).toLocaleString()}</span>.
+          `;
+        } else if (prevSnapshot.annualContribBase !== annualContribBase) {
+          keyChange = "contribution";
+          const direction = annualContribBase > prevSnapshot.annualContribBase ? "increased" : "reduced";
+          changeText = `
+            You ${direction} your annual contribution from 
+            <span class="highlight">$${Math.round(prevSnapshot.annualContribBase).toLocaleString()}</span> to
+            <span class="highlight">$${Math.round(annualContribBase).toLocaleString()}</span>, shifting your projected balance by
+            <span class="highlight">${diffBalance >= 0 ? '+' : '-'}$${Math.abs(diffBalance).toLocaleString()}</span>.
+          `;
+        } else if (prevSnapshot.returnPctBase !== returnPctBase) {
+          keyChange = "return assumption";
+          const direction = returnPctBase > prevSnapshot.returnPctBase ? "higher" : "lower";
+          changeText = `
+            You set a ${direction} return assumption (from 
+            <span class="highlight">${prevSnapshot.returnPctBase.toFixed(1)}%</span> to 
+            <span class="highlight">${returnPctBase.toFixed(1)}%</span> p.a.), which changes your projected balance by
+            <span class="highlight">${diffBalance >= 0 ? '+' : '-'}$${Math.abs(diffBalance).toLocaleString()}</span>.
+          `;
+        } else if (prevSnapshot.scenarioExtraMonthly !== scenarioExtraMonthlyInput) {
+          keyChange = "scenario extra saving";
+          const direction = scenarioExtraMonthlyInput > prevSnapshot.scenarioExtraMonthly ? "increased" : "reduced";
+          changeText = `
+            You ${direction} your extra saving for the scenario line (from 
+            <span class="highlight">$${Math.round(prevSnapshot.scenarioExtraMonthly).toLocaleString()}/month</span> to
+            <span class="highlight">$${Math.round(scenarioExtraMonthlyInput).toLocaleString()}/month</span>). 
+            The base plan now ends at 
+            <span class="highlight">$${finalBalanceBase.toLocaleString()}</span>.
+          `;
+        } else if (prevSnapshot.activeScenario !== activeScenario) {
+          keyChange = "scenario preset";
+          changeText = `
+            You switched scenario preset to <span class="highlight">${activeScenario}</span>. 
+            This adjusts return, inflation or extra saving assumptions to stress test your plan.
+          `;
+        } else {
+          changeText = `
+            Your latest change updated the projection to 
+            <span class="highlight">$${finalBalanceBase.toLocaleString()}</span> at age 
+            <span class="highlight">${retireAge}</span>. Keep exploring different settings to see how sensitive your plan is.
+          `;
+        }
+
+        whatChangedEl.innerHTML = changeText;
+      }
+
+      prevSnapshot = snapshot;
     }
 
     // Event wiring
     document.getElementById('updateBtn').addEventListener('click', runProjection);
 
-    // Re-run on key input changes for "live" feeling
     const autoInputs = [
       'ageInput',
       'retireAgeInput',
@@ -928,6 +1188,17 @@
         if (['Enter', 'Tab'].includes(e.key)) {
           runProjection();
         }
+      });
+    });
+
+    // Scenario buttons
+    const scenarioButtons = document.querySelectorAll('.scenario-btn');
+    scenarioButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        scenarioButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeScenario = btn.getAttribute('data-scenario');
+        runProjection();
       });
     });
 
