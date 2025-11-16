@@ -418,10 +418,10 @@
       color: var(--text-muted);
     }
 
-    /* Extra summary row */
-
+    /* Extra summary row: now 4 cards */
     .summary-grid.extra-grid {
       margin-top: 4px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .meter {
@@ -454,8 +454,6 @@
       color: #e5e7eb;
       font-weight: 500;
     }
-
-    /* Insights & disclaimer */
 
     .insights-panel {
       background: radial-gradient(circle at top left, rgba(34,197,94,0.07), rgba(15,23,42,0.9));
@@ -498,8 +496,6 @@
       color: #e5e7eb;
       font-weight: 500;
     }
-
-    /* Responsive */
 
     @media (max-width: 900px) {
       .main-grid {
@@ -624,6 +620,15 @@
                 </div>
                 <small style="color: var(--text-muted); font-size: 11px;">Per month, applied to comparison line.</small>
               </div>
+
+              <div class="input-group">
+                <label class="input-label">Target Retirement Income</label>
+                <div class="input-prefix-wrap">
+                  <span class="prefix">$</span>
+                  <input id="targetIncomeInput" type="number" class="input-field" value="70000" min="0" />
+                </div>
+                <small style="color: var(--text-muted); font-size: 11px;">Per year, in today's dollars (for FI age).</small>
+              </div>
             </div>
 
             <div class="toggle-row">
@@ -643,7 +648,7 @@
             </button>
 
             <div class="helper-text">
-              <strong>Tip:</strong> Play with retirement age and contribution size. Small changes can have a surprisingly large impact by retirement.
+              <strong>Tip:</strong> Play with retirement age, target income and contributions. Small changes can have a surprisingly large impact by retirement.
             </div>
           </div>
         </div>
@@ -705,7 +710,7 @@
               </div>
             </div>
 
-            <!-- New: health score / savings meter / what changed -->
+            <!-- Health score / savings meter / FI age / what changed -->
             <div class="summary-grid extra-grid">
               <div class="summary-card">
                 <div class="summary-label">Wealth Health Score</div>
@@ -719,6 +724,12 @@
                   <div id="savingsMeterFill" class="meter-fill"></div>
                 </div>
                 <div id="savingsMeterLabel" class="summary-tag">—</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">FI Age (4% Rule)</div>
+                <div id="fiAgeValue" class="summary-value">—</div>
+                <div id="fiAgeTag" class="summary-tag muted">Set a target income to estimate FI age.</div>
               </div>
 
               <div class="summary-card">
@@ -888,6 +899,7 @@
       const showTodayDollars = document.getElementById('todayDollarsToggle').checked;
       const scenarioOn = document.getElementById('scenarioToggle').checked;
       const scenarioExtraMonthlyInput = Number(document.getElementById('scenarioExtraInput').value) || 0;
+      const targetIncomeToday = Number(document.getElementById('targetIncomeInput').value) || 0;
 
       // Scenario adjustments
       let returnAdj = 0;
@@ -916,7 +928,7 @@
       const inflationPct = inflationPctBase + inflationAdj;
       const scenarioExtraMonthly = scenarioExtraMonthlyInput + scenarioExtraAdj;
 
-      const retireAge = retireAgeBase; // could adjust in future scenarios
+      const retireAge = retireAgeBase;
       const years = Math.max(retireAge - age, 0);
       if (years <= 0) return;
 
@@ -932,6 +944,7 @@
       let balBase = balance0;
       let balScenario = balance0;
       let totalContribBase = 0;
+      let fiAge = null;
 
       for (let i = 0; i <= years; i++) {
         const currentAge = age + i;
@@ -948,12 +961,20 @@
         let displayBase = balBase;
         let displayScenario = balScenario;
 
+        const discountFactor = Math.pow(1 + inflation, i);
+
         if (showTodayDollars) {
-          const discountFactor = Math.pow(1 + inflation, i);
           displayBase = balBase / discountFactor;
           if (scenarioOn) {
             displayScenario = balScenario / discountFactor;
           }
+        }
+
+        // FI age calc: always in today's dollars
+        const realBalanceForFI = balBase / discountFactor;
+        const swrIncome = realBalanceForFI * 0.04;
+        if (!fiAge && targetIncomeToday > 0 && swrIncome >= targetIncomeToday) {
+          fiAge = currentAge;
         }
 
         labels.push(currentAge.toString());
@@ -994,7 +1015,7 @@
       const finalBalanceBase = baseData[baseData.length - 1] || 0;
       const totalContributions = totalContribBase;
       const growth = Math.max(finalBalanceBase - totalContributions - balance0, 0);
-      const estIncome = finalBalanceBase * 0.04; // 4% rule
+      const estIncome = finalBalanceBase * 0.04; // 4% rule (in chart currency)
 
       document.getElementById('summaryBalance').textContent = `$${finalBalanceBase.toLocaleString()}`;
       document.getElementById('summaryContributions').textContent = `$${totalContributions.toLocaleString()}`;
@@ -1053,7 +1074,25 @@
         meterLabel.textContent = "Very contribution-heavy so far, with limited compounding impact.";
       }
 
-      // Behavioural insight
+      // FI Age (4% rule in today's dollars)
+      const fiAgeValueEl = document.getElementById('fiAgeValue');
+      const fiAgeTagEl = document.getElementById('fiAgeTag');
+
+      if (!targetIncomeToday) {
+        fiAgeValueEl.textContent = "—";
+        fiAgeTagEl.textContent = "Set a target income to estimate FI age.";
+        fiAgeTagEl.classList.add('muted');
+      } else if (fiAge) {
+        fiAgeValueEl.textContent = `${fiAge}`;
+        fiAgeTagEl.textContent = `At ~age ${fiAge}, a 4% withdrawal is ≈ $${Math.round(targetIncomeToday).toLocaleString()} in today's dollars.`;
+        fiAgeTagEl.classList.remove('muted');
+      } else {
+        fiAgeValueEl.textContent = "Not reached";
+        fiAgeTagEl.textContent = `Even by age ${retireAge}, a 4% withdrawal stays below your target of $${Math.round(targetIncomeToday).toLocaleString()}.`;
+        fiAgeTagEl.classList.remove('muted');
+      }
+
+      // Behavioural insight + milestones
       const insightsEl = document.getElementById('insightsBody');
       let insight = "";
 
@@ -1084,12 +1123,44 @@
         insight = `
           You're contributing about <span class="insights-highlight">$${Math.round(annualContribBase).toLocaleString()} per year</span>,
           which is ${savingDescriptor}. 
-          Small tweaks to your savings rate or retirement age can have a large impact once markets have 
+          Small tweaks to your savings rate, retirement age or target income can have a large impact once markets have 
           <span class="insights-highlight">${years}+ years</span> to compound.
         `;
       }
 
-      insightsEl.innerHTML = insight;
+      // Milestones: first 100k / 250k / 500k / 1m in chart currency
+      const milestoneDefs = [
+        { label: "$100k", value: 100_000 },
+        { label: "$250k", value: 250_000 },
+        { label: "$500k", value: 500_000 },
+        { label: "$1m", value: 1_000_000 }
+      ];
+
+      const milestonePieces = [];
+      milestoneDefs.forEach(m => {
+        let hitAge = null;
+        for (let i = 0; i < baseData.length; i++) {
+          if (baseData[i] >= m.value) {
+            hitAge = labels[i];
+            break;
+          }
+        }
+        if (hitAge) {
+          milestonePieces.push(`${m.label} at age ${hitAge}`);
+        }
+      });
+
+      let milestonesHtml = "";
+      if (milestonePieces.length > 0) {
+        milestonesHtml = `<br><br><span class="insights-highlight">Milestones:</span> ${milestonePieces.join(', ')}.`;
+      }
+
+      // If FI age is earlier than planned retirement, mention it here too
+      if (fiAge && fiAge < retireAge && targetIncomeToday > 0) {
+        milestonesHtml += `<br><span class="insights-highlight">FI Insight:</span> You could theoretically reach financial independence around age ${fiAge}, earlier than your planned retirement age of ${retireAge}.`;
+      }
+
+      insightsEl.innerHTML = insight + milestonesHtml;
 
       // What changed? (diff vs previous snapshot)
       const whatChangedEl = document.getElementById('whatChangedText');
@@ -1101,24 +1172,21 @@
         inflationPctBase,
         scenarioOn,
         scenarioExtraMonthly: scenarioExtraMonthlyInput,
-        activeScenario
+        activeScenario,
+        targetIncomeToday
       };
 
       if (prevSnapshot) {
         const diffBalance = finalBalanceBase - prevSnapshot.finalBalanceBase;
-        let keyChange = "";
         let changeText = "";
 
         if (prevSnapshot.retireAge !== retireAge) {
-          keyChange = "retirement age";
-          const direction = retireAge > prevSnapshot.retireAge ? "later" : "earlier";
           changeText = `
             You moved your retirement age from <span class="highlight">${prevSnapshot.retireAge}</span> to 
             <span class="highlight">${retireAge}</span>, which changed your projected balance by 
             <span class="highlight">${diffBalance >= 0 ? '+' : '-'}$${Math.abs(diffBalance).toLocaleString()}</span>.
           `;
         } else if (prevSnapshot.annualContribBase !== annualContribBase) {
-          keyChange = "contribution";
           const direction = annualContribBase > prevSnapshot.annualContribBase ? "increased" : "reduced";
           changeText = `
             You ${direction} your annual contribution from 
@@ -1127,7 +1195,6 @@
             <span class="highlight">${diffBalance >= 0 ? '+' : '-'}$${Math.abs(diffBalance).toLocaleString()}</span>.
           `;
         } else if (prevSnapshot.returnPctBase !== returnPctBase) {
-          keyChange = "return assumption";
           const direction = returnPctBase > prevSnapshot.returnPctBase ? "higher" : "lower";
           changeText = `
             You set a ${direction} return assumption (from 
@@ -1136,7 +1203,6 @@
             <span class="highlight">${diffBalance >= 0 ? '+' : '-'}$${Math.abs(diffBalance).toLocaleString()}</span>.
           `;
         } else if (prevSnapshot.scenarioExtraMonthly !== scenarioExtraMonthlyInput) {
-          keyChange = "scenario extra saving";
           const direction = scenarioExtraMonthlyInput > prevSnapshot.scenarioExtraMonthly ? "increased" : "reduced";
           changeText = `
             You ${direction} your extra saving for the scenario line (from 
@@ -1145,8 +1211,15 @@
             The base plan now ends at 
             <span class="highlight">$${finalBalanceBase.toLocaleString()}</span>.
           `;
+        } else if (prevSnapshot.targetIncomeToday !== targetIncomeToday) {
+          const direction = targetIncomeToday > prevSnapshot.targetIncomeToday ? "higher" : "lower";
+          changeText = `
+            You set a ${direction} target retirement income (from
+            <span class="highlight">$${Math.round(prevSnapshot.targetIncomeToday || 0).toLocaleString()}</span> to
+            <span class="highlight">$${Math.round(targetIncomeToday || 0).toLocaleString()}</span> in today's dollars),
+            updating your estimated FI age and trajectory.
+          `;
         } else if (prevSnapshot.activeScenario !== activeScenario) {
-          keyChange = "scenario preset";
           changeText = `
             You switched scenario preset to <span class="highlight">${activeScenario}</span>. 
             This adjusts return, inflation or extra saving assumptions to stress test your plan.
@@ -1178,7 +1251,8 @@
       'inflationInput',
       'todayDollarsToggle',
       'scenarioToggle',
-      'scenarioExtraInput'
+      'scenarioExtraInput',
+      'targetIncomeInput'
     ];
 
     autoInputs.forEach(id => {
