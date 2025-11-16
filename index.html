@@ -1,1 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Wealth Projection Playground</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-main: #050b16;
+      --bg-card: #0d1626;
+      --bg-card-soft: #111b2c;
+      --accent: #2F80ED;
+      --accent-soft: rgba(47,128,237,0.35);
+      --accent-two: #00D1B2;
+      --text-main: #f7fafc;
+      --text-muted: #a0aec0;
+      --border-subtle: rgba(255,255,255,0.06);
+      --danger: #ff6b6b;
+      --success: #22c55e;
+      --warning: #facc15;
+      --shadow-soft: 0 20px 45px rgba(0,0,0,0.55);
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-pill: 999px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Source Sans 3', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+      background: radial-gradient(circle at top left, #12213a 0, #050b16 45%, #020308 100%);
+      min-height: 100vh;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+    }
+
+    .app-shell {
+      max-width: 1200px;
+      width: 100%;
+      padding: 24px 16px 32px;
+    }
+
+    header.app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 15px;
+      background: radial-gradient(circle at 20% 20%, #2F80ED, #00D1B2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      font-size: 18px;
+    }
+
+    .brand-text h1 {
+      margin: 0;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 20px;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-text p {
+      margin: 2px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .pill-badge {
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255,255,255,0.09);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(15,23,42,0.4));
+    }
+
+    .pill-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(47,128,237,0.8);
+    }
+
+    /* Layout */
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr);
+      gap: 20px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(145deg, rgba(13,22,38,0.96), rgba(4,9,20,0.99));
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(255,255,255,0.03);
+      padding: 18px 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at top left, rgba(47,128,237,0.14), transparent 60%);
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    .panel-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .panel-title {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+    }
+
+    .panel-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Inputs */
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }
+
+    .input-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .input-label span {
+      color: rgba(148, 163, 184, 0.9);
+    }
+
+    .input-field,
+    .input-select {
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: radial-gradient(circle at top left, #1b2435, #0b1020);
+      padding: 8px 9px;
+      font-size: 13px;
+      color: var(--text-main);
+      outline: none;
+      width: 100%;
+    }
+
+    .input-field:focus,
+    .input-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(47,128,237,0.45);
+    }
+
+    .input-prefix-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-prefix-wrap span.prefix {
+      position: absolute;
+      left: 9px;
+      font-size: 12px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .input-prefix-wrap input {
+      padding-left: 20px;
+    }
+
+    .toggle-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0 14px;
+    }
+
+    .toggle-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-item input {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .primary-btn {
+      border-radius: var(--radius-pill);
+      border: none;
+      padding: 8px 18px;
+      background: linear-gradient(135deg, #2F80ED, #00D1B2);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', system-ui, sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 12px 30px rgba(15,118,255,0.4);
+    }
+
+    .primary-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-0.5px);
+    }
+
+    .primary-btn:active {
+      transform: translateY(0.5px);
+      box-shadow: 0 8px 20px rgba(15,118,255,0.4);
+    }
+
+    .helper-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    .helper-text strong {
+      color: #e5e7eb;
+      font-weight: 500;
+    }
+
+    /* Chart + Summary */
+
+    .chart-wrapper {
+      height: 320px;
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .chart-wrapper canvas {
+      max-height: 100%;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .legend-side {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(47,128,237,0.7);
+    }
+
+    .legend-dot.secondary {
+      background: var(--accent-two);
+      box-shadow: 0 0 8px rgba(34,197,94,0.6);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card {
+      background: radial-gradient(circle at top left, #151f30, #070e19);
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.16);
+      padding: 10px 11px;
+      font-size: 12px;
+    }
+
+    .summary-label {
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+
+    .summary-value {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .summary-tag {
+      font-size: 10px;
+      margin-top: 4px;
+      color: var(--success);
+    }
+
+    .summary-tag.warn {
+      color: var(--warning);
+    }
+
+    /* Insights & disclaimer */
+
+    .insights-panel {
+      background: radial-gradient(circle at top left, rgba(34,197,94,0.07), rgba(15,23,42,0.9));
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(34,197,94,0.2);
+      padding: 10px 12px 12px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+    }
+
+    .insights-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .insights-body {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #e5e7eb;
+    }
+
+    .insights-highlight {
+      color: #bbf7d0;
+      font-weight: 500;
+    }
+
+    .disclaimer {
+      margin-top: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .disclaimer strong {
+      color: #e5e7eb;
+      font-weight: 500;
+    }
+
+    /* Responsive */
+
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      .app-shell {
+        padding-inline: 10px;
+      }
+
+      .summary-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      header.app-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .panel {
+        padding-inline: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo">WP</div>
+        <div class="brand-text">
+          <h1>Wealth Projection Playground</h1>
+          <p>Adjust the levers and see how your decisions compound over time.</p>
+        </div>
+      </div>
+      <div class="pill-badge">
+        <span class="pill-dot"></span>
+        Live What-If Engine
+      </div>
+    </header>
+
+    <main>
+      <section class="main-grid">
+        <!-- Inputs Panel -->
+        <div class="panel">
+          <div class="panel-inner">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Inputs</div>
+                <div class="panel-subtitle">Tell the engine who you are and how you invest.</div>
+              </div>
+            </div>
+
+            <div class="input-grid">
+              <div class="input-group">
+                <label class="input-label">Current Age</label>
+                <input id="ageInput" type="number" class="input-field" value="40" min="18" max="80" />
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Retirement Age</label>
+                <input id="retireAgeInput" type="number" class="input-field" value="67" min="40" max="90" />
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Current Balance</label>
+                <div class="input-prefix-wrap">
+                  <span class="prefix">$</span>
+                  <input id="balanceInput" type="number" class="input-field" value="250000" min="0" />
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Regular Contribution</label>
+                <div class="input-prefix-wrap">
+                  <span class="prefix">$</span>
+                  <input id="contributionInput" type="number" class="input-field" value="1500" min="0" />
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Contribution Frequency</label>
+                <select id="frequencySelect" class="input-select">
+                  <option value="monthly" selected>Monthly</option>
+                  <option value="fortnightly">Fortnightly</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="annual">Annual</option>
+                </select>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Expected Return <span>(p.a.)</span></label>
+                <div class="input-prefix-wrap">
+                  <input id="returnInput" type="number" class="input-field" value="7" step="0.1" />
+                  <span class="prefix">%</span>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Inflation <span>(for today's dollars)</span></label>
+                <div class="input-prefix-wrap">
+                  <input id="inflationInput" type="number" class="input-field" value="2.5" step="0.1" />
+                  <span class="prefix">%</span>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Scenario Extra Saving</label>
+                <div class="input-prefix-wrap">
+                  <span class="prefix">$</span>
+                  <input id="scenarioExtraInput" type="number" class="input-field" value="100" min="0" />
+                </div>
+                <small style="color: var(--text-muted); font-size: 11px;">Per month, applied to comparison line.</small>
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <label class="toggle-item">
+                <input id="todayDollarsToggle" type="checkbox" checked />
+                <span>Show values in today's dollars</span>
+              </label>
+              <label class="toggle-item">
+                <input id="scenarioToggle" type="checkbox" checked />
+                <span>Compare with extra saving scenario</span>
+              </label>
+            </div>
+
+            <button id="updateBtn" class="primary-btn">
+              <span>Update Projection</span>
+              <span>↻</span>
+            </button>
+
+            <div class="helper-text">
+              <strong>Tip:</strong> Play with retirement age and contribution size. Small changes can have a surprisingly large impact by retirement.
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart + Summary Panel -->
+        <div class="panel">
+          <div class="panel-inner">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Projection</div>
+                <div class="panel-subtitle">Your projected wealth path from today to retirement.</div>
+              </div>
+            </div>
+
+            <div class="legend-row">
+              <div class="legend-side">
+                <span class="legend-dot"></span>
+                <span>Base Plan</span>
+                <span id="todayModeLabel" style="font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(15,23,42,0.8); border: 1px solid rgba(148,163,184,0.4);">
+                  Today's dollars
+                </span>
+              </div>
+              <div class="legend-side">
+                <span class="legend-dot secondary" id="scenarioLegendDot" style="display: inline-block;"></span>
+                <span id="scenarioLegendLabel">+ Extra Saving Scenario</span>
+              </div>
+            </div>
+
+            <div class="chart-wrapper">
+              <canvas id="projectionChart"></canvas>
+            </div>
+
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-label">Projected Balance at Retirement</div>
+                <div id="summaryBalance" class="summary-value">$0</div>
+                <div id="summaryBalanceTag" class="summary-tag">—</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">Total Contributions</div>
+                <div id="summaryContributions" class="summary-value">$0</div>
+                <div class="summary-tag warn">Includes base plan only</div>
+              </div>
+
+              <div class="summary-card">
+                <div class="summary-label">Estimated Income (4% Rule)</div>
+                <div id="summaryIncome" class="summary-value">$0 / yr</div>
+                <div class="summary-tag">Illustrative only</div>
+              </div>
+            </div>
+
+            <div class="insights-panel">
+              <div class="insights-title">
+                <span>Behavioural Insight</span>
+              </div>
+              <div id="insightsBody" class="insights-body">
+                Adjust a setting and I’ll translate the change into a plain-English insight.
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <section class="disclaimer">
+        <strong>Important:</strong> This is an illustrative projection only. It assumes constant returns and inflation, and does not factor in tax, fees, legislative changes or market volatility.
+        Actual outcomes will be higher or lower and can vary significantly from the projection. This is general information and does not take into account your objectives, financial situation or needs.
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Glow plugin for Chart.js
+    const glowPlugin = {
+      id: 'glowPlugin',
+      beforeDatasetsDraw(chart, args, options) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.shadowColor = options.color || 'rgba(47,128,237,0.7)';
+        ctx.shadowBlur = options.blur || 15;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      },
+      afterDatasetsDraw(chart) {
+        chart.ctx.restore();
+      }
+    };
+
+    Chart.register(glowPlugin);
+
+    const ctx = document.getElementById('projectionChart').getContext('2d');
+
+    // Gradient for main line
+    const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+    gradient.addColorStop(0, 'rgba(47,128,237,0.6)');
+    gradient.addColorStop(1, 'rgba(47,128,237,0)');
+
+    // Initial chart setup
+    const projectionChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Base Plan',
+            data: [],
+            borderWidth: 3,
+            borderColor: '#2F80ED',
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0
+          },
+          {
+            label: 'Scenario',
+            data: [],
+            borderWidth: 2,
+            borderColor: '#00D1B2',
+            backgroundColor: 'rgba(0,209,178,0)',
+            borderDash: [5, 4],
+            tension: 0.25,
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 900,
+          easing: 'easeInOutQuart'
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: 'rgba(10, 26, 47, 0.95)',
+            titleColor: '#fff',
+            bodyColor: '#fff',
+            padding: 10,
+            cornerRadius: 8,
+            displayColors: false,
+            callbacks: {
+              title: (ctx) => `Age ${ctx[0].label}`,
+              label: (ctx) => ` $${ctx.parsed.y.toLocaleString()}`
+            }
+          },
+          glowPlugin: {
+            blur: 18,
+            color: 'rgba(47,128,237,0.7)'
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: '#e5e7eb',
+              font: { size: 11 }
+            }
+          },
+          y: {
+            grid: {
+              color: 'rgba(148,163,184,0.16)',
+              drawBorder: false
+            },
+            ticks: {
+              color: '#e5e7eb',
+              font: { size: 11 },
+              callback: (value) => {
+                if (value >= 1_000_000) return `$${(value/1_000_000).toFixed(1)}m`;
+                if (value >= 1000) return `$${(value/1000).toFixed(0)}k`;
+                return `$${value}`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Helper: convert contribution frequency to annual
+    function contributionToAnnual(amount, frequency) {
+      const val = Number(amount) || 0;
+      switch (frequency) {
+        case 'weekly': return val * 52;
+        case 'fortnightly': return val * 26;
+        case 'monthly': return val * 12;
+        case 'annual':
+        default:
+          return val;
+      }
+    }
+
+    // Core projection logic
+    function runProjection() {
+      const age = Number(document.getElementById('ageInput').value) || 0;
+      const retireAge = Number(document.getElementById('retireAgeInput').value) || 0;
+      const balance0 = Number(document.getElementById('balanceInput').value) || 0;
+      const contrib = Number(document.getElementById('contributionInput').value) || 0;
+      const frequency = document.getElementById('frequencySelect').value;
+      const returnPct = Number(document.getElementById('returnInput').value) || 0;
+      const inflationPct = Number(document.getElementById('inflationInput').value) || 0;
+      const showTodayDollars = document.getElementById('todayDollarsToggle').checked;
+      const scenarioOn = document.getElementById('scenarioToggle').checked;
+      const scenarioExtraMonthly = Number(document.getElementById('scenarioExtraInput').value) || 0;
+
+      const years = Math.max(retireAge - age, 0);
+      if (years <= 0) return;
+
+      const r = returnPct / 100;
+      const inflation = inflationPct / 100;
+      const annualContribBase = contributionToAnnual(contrib, frequency);
+      const annualContribScenario = annualContribBase + (scenarioExtraMonthly * 12);
+
+      let labels = [];
+      let baseData = [];
+      let scenarioData = [];
+
+      let balBase = balance0;
+      let balScenario = balance0;
+      let totalContribBase = 0;
+
+      for (let i = 0; i <= years; i++) {
+        const currentAge = age + i;
+
+        if (i > 0) {
+          // Contributions at the end of previous year
+          balBase = balBase * (1 + r) + annualContribBase;
+          totalContribBase += annualContribBase;
+
+          if (scenarioOn) {
+            balScenario = balScenario * (1 + r) + annualContribScenario;
+          }
+        }
+
+        let displayBase = balBase;
+        let displayScenario = balScenario;
+
+        if (showTodayDollars) {
+          const discountFactor = Math.pow(1 + inflation, i);
+          displayBase = balBase / discountFactor;
+          if (scenarioOn) {
+            displayScenario = balScenario / discountFactor;
+          }
+        }
+
+        labels.push(currentAge.toString());
+        baseData.push(Math.round(displayBase));
+        if (scenarioOn) {
+          scenarioData.push(Math.round(displayScenario));
+        }
+      }
+
+      // Update chart data
+      projectionChart.data.labels = labels;
+      projectionChart.data.datasets[0].data = baseData;
+
+      const scenarioDataset = projectionChart.data.datasets[1];
+      if (scenarioOn) {
+        scenarioDataset.data = scenarioData;
+        scenarioDataset.hidden = false;
+        document.getElementById('scenarioLegendDot').style.opacity = '1';
+        document.getElementById('scenarioLegendLabel').style.opacity = '1';
+      } else {
+        scenarioDataset.data = [];
+        scenarioDataset.hidden = true;
+        document.getElementById('scenarioLegendDot').style.opacity = '0.25';
+        document.getElementById('scenarioLegendLabel').style.opacity = '0.4';
+      }
+
+      // Update label for today's dollars vs nominal
+      const todayModeLabel = document.getElementById('todayModeLabel');
+      if (showTodayDollars) {
+        todayModeLabel.textContent = "Today's dollars";
+      } else {
+        todayModeLabel.textContent = "Future dollars (nominal)";
+      }
+
+      projectionChart.update();
+
+      // Summary metrics (base plan)
+      const finalBalanceBase = baseData[baseData.length - 1] || 0;
+      const totalContributions = totalContribBase;
+
+      const growth = Math.max(finalBalanceBase - totalContributions - balance0, 0);
+      const estIncome = finalBalanceBase * 0.04; // 4% rule
+
+      document.getElementById('summaryBalance').textContent = `$${finalBalanceBase.toLocaleString()}`;
+      document.getElementById('summaryContributions').textContent = `$${totalContributions.toLocaleString()}`;
+      document.getElementById('summaryIncome').textContent = `$${Math.round(estIncome).toLocaleString()} / yr`;
+
+      const growthShare = finalBalanceBase > 0 ? (growth / finalBalanceBase) : 0;
+      const balanceTag = document.getElementById('summaryBalanceTag');
+      if (growthShare > 0.6) {
+        balanceTag.textContent = "Compounding doing most of the heavy lifting.";
+      } else if (growthShare > 0.3) {
+        balanceTag.textContent = "Solid mix of contributions and growth.";
+      } else {
+        balanceTag.textContent = "Contributions are the main driver here.";
+      }
+
+      // Behavioural insight
+      const insightsEl = document.getElementById('insightsBody');
+      let insight = "";
+
+      if (scenarioOn && scenarioData.length > 0) {
+        const finalScenario = scenarioData[scenarioData.length - 1] || 0;
+        const uplift = Math.max(finalScenario - finalBalanceBase, 0);
+        const extraAnnual = annualContribScenario - annualContribBase;
+        const extraMonthly = extraAnnual / 12;
+
+        const upliftPct = finalBalanceBase > 0 ? (uplift / finalBalanceBase) * 100 : 0;
+
+        insight = `
+          With an extra <span class="insights-highlight">$${Math.round(extraMonthly).toLocaleString()}/month</span>,
+          your projected balance at age ${retireAge} increases by about
+          <span class="insights-highlight">$${Math.round(uplift).toLocaleString()}</span>
+          (${upliftPct.toFixed(1)}% more than your base plan in ${years} years).
+        `;
+      } else {
+        // No scenario, general insight
+        const savingRateDescriptor =
+          annualContribBase === 0
+            ? "no ongoing contributions"
+            : annualContribBase < 6000
+            ? "quite a low ongoing contribution"
+            : annualContribBase < 20000
+            ? "a solid ongoing contribution"
+            : "a very strong ongoing contribution";
+
+        insight = `
+          You're contributing about <span class="insights-highlight">$${Math.round(annualContribBase).toLocaleString()} per year</span>,
+          which is ${savingRateDescriptor}. 
+          Small tweaks to your savings rate or retirement age can have a large impact once markets have 
+          <span class="insights-highlight">${years}+ years</span> to compound.
+        `;
+      }
+
+      insightsEl.innerHTML = insight;
+    }
+
+    // Event wiring
+    document.getElementById('updateBtn').addEventListener('click', runProjection);
+
+    // Re-run on key input changes for "live" feeling
+    const autoInputs = [
+      'ageInput',
+      'retireAgeInput',
+      'balanceInput',
+      'contributionInput',
+      'frequencySelect',
+      'returnInput',
+      'inflationInput',
+      'todayDollarsToggle',
+      'scenarioToggle',
+      'scenarioExtraInput'
+    ];
+
+    autoInputs.forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('change', runProjection);
+      el.addEventListener('keyup', (e) => {
+        if (['Enter', 'Tab'].includes(e.key)) {
+          runProjection();
+        }
+      });
+    });
+
+    // Initial render
+    runProjection();
+  </script>
+</body>
+</html>
